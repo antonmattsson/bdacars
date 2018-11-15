@@ -1,0 +1,67 @@
+---
+title: "bdacars"
+output: html_notebook
+---
+
+Playing around with models and code.
+
+Setting our working directory and initializing Stan for use:
+```{r}
+setwd('C:/Users/esatu/Dropbox/Aalto/Bayesian Data Analysis/Project')
+Sys.setenv(USE_CXX14 = 1)
+library("rstan") # observe startup messages
+```
+Loading our data:
+```{r}
+data(mtcars)
+```
+Inspecting our data:
+```{r}
+head(mtcars, 7)
+```
+
+Let's get to know our variables of interest. We expect the \textit{miles per gallon} to decrease as \textit{weight} increases.
+```{r}
+plot(mtcars$mpg ~ mtcars$wt)
+```
+This appears to be the case. How would we model this with Stan?
+We build our model into the file linear_cars.stan.
+
+Now to model we run:
+```{r}
+fit <- stan(file = 'linear_cars.stan',
+            data = list(n = nrow(mtcars),
+                        x = mtcars$wt,
+                        y = mtcars$mpg))
+```
+
+Let's see what we got.
+```{r}
+plot(fit)
+```
+```{r}
+traceplot(fit)
+```
+
+```{r}
+fit_df <- as.data.frame(fit)
+
+library(ggplot2)
+
+ggplot(fit_df, aes(alpha, beta, color=sigma)) +
+  geom_point(alpha = 0.3) +
+  geom_density2d(color = "white") +
+  scale_color_viridis_c(option = 'inferno') +
+  labs(title = 'Stan parameter space')
+```
+```{r}
+ggplot(mtcars, aes(wt, mpg)) +
+  geom_point() +
+  geom_abline(aes(intercept = alpha, slope= beta), fit_df,
+              alpha = 0.07, color = 'gray50') +
+  geom_abline(slope = mean(fit_df$beta),
+              intercept = mean(fit_df$alpha),
+              color = "pink", size=1) +
+  labs(title = 'Bayesian regression on Motor Trends')
+```
+
