@@ -1,0 +1,50 @@
+---
+title: "bdacars"
+output:
+  html_document:
+    df_print: paged
+---
+
+Setting up libraries and the project path:
+
+```{r}
+suppressMessages(library(rstan))
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+path <- "~/Google_Drive/Kurssit/BDA/project/bdacars/"
+source(paste0(path, "functions.R"))
+```
+
+Setting up the data into a Stan-friendly format:
+
+```{r}
+dada <- list(mpg = mtcars$mpg,
+             wt=mtcars$wt,
+             disp = mtcars$disp,
+             am = mtcars$am,
+             n = nrow(mtcars))
+```
+
+Running the Stan models:
+
+```{r, echo = T, results = 'hide'}
+model_names <- c("wt_disp", "wt_am", "disp_am", "wt_disp_am")
+models <- list()
+
+for(mname in model_names){
+  fit <- stan(paste0(path, mname,".stan"), data=dada, model_name = mname)
+  models[[mname]] <- fit
+}
+```
+
+Looking at some convergence diagnostics:
+
+```{r, results='asis'}
+for(mname in model_names){
+  # Extract convergence diagnostics from the model
+  diagnostics <- convergence_diagnostics(models[[mname]], mname)
+  # Output as a nice table
+  print(knitr::kable(diagnostics, caption = paste("mpg ~", gsub("_", " + ", mname))))
+}
+```
+
