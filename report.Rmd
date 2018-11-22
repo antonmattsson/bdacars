@@ -32,7 +32,7 @@ model_names <- c("wt_disp", "wt_am", "disp_am", "wt_disp_am")
 models <- list()
 
 for(mname in model_names){
-  fit <- stan(paste0(path, mname,".stan"), data=dada, model_name = mname)
+  fit <- stan(paste0(path, "stan_models/", mname,".stan"), data=dada, model_name = mname)
   models[[mname]] <- fit
 }
 ```
