@@ -2,7 +2,6 @@
 data {
   int<lower=0> n;
   vector[n] wt;
-  vector[n] disp;
   vector[n] am;
   vector[n] mpg;
 }
@@ -15,7 +14,7 @@ parameters {
 }
 
 transformed parameters{
-  vector[N] mu;
+  vector[n] mu;
   mu = alpha + beta_wt*wt + beta_am*am;
 }
 
@@ -24,7 +23,7 @@ model {
 }
 
 generated quantities {
-  vector[N] log_lik;
-  for (i in 1:N)
+  vector[n] log_lik;
+  for (i in 1:n)
     log_lik[i] = normal_lpdf(mpg[i] |mu[i] , sigma);
 }
