@@ -26,36 +26,63 @@ propercars <- data.frame(wt = mtcars$wt/2.205,
 ```
 
 
+### Exploratory analysis
+
+Before starting with the actual analysis, let's look at the data! A good first step is to plot the variables against each other. The ```ggpairs``` function fomr the ```GGally``` package comes in handy:
+
+```{r, fig.width=10, fig.height=10}
+# Change am to factor for correct plotting
+plotcars <- propercars
+plotcars$am <- factor(propercars$am)
+# Change default plots styled for the lower triangular of the plot matrix
+lower <- list(continuous = "smooth",
+                combo = "facetdensity")
+# Plot pairs of variables against each other
+ggpairs(plotcars,
+        lower = lower,
+        showStrips = TRUE,
+        progress = FALSE) +
+  theme_bw()
+```
+
+The plot matrix is a lot to take in, so let's deal with it piece-by-piece.  
+First, let's look at the third row. It displays fuel consumption as a function of the potential explanatory variables. Starting from the left, the first three plots show no surprises. Fuel consumption strongly correlates with car weight and displacement, and the distribution looks smooth with few cars deviating from the rest. The last plot, though, seems to contradict one our initial hypotheses, since manual cars (class 1) seem to have lower fuel consumption than automatic ones. The bottom row displays a closer view at the distribution of the consumption in the two gearbox classes. The distribution of automatic cars seems to follow the overall distribution, while cars with low fuel consumption dominate the manual class.  We'll have to come back to this later!
+
+Next up, the top two rows where we observe the relationships between our potential explanatory variables. The short story is : they're correlated. The Pearson correlation coefficient between weight and displacement is just shy of 0.9. In addition, automatic cars seem to be heavier an equipped with larger engines than manual cars. Maybe this explains their higher fuel consumption! We'll see after we run our models.
+
+
+### Modeling
+
 Setting up the data into a Stan-friendly format:
 
 ```{r}
-dada <- list(lp100km = propercars$lp100km,
-             wt=propercars$wt,
-             disp = propercars$disp,
-             am = propercars$am,
-             n = nrow(propercars))
+# dada <- list(lp100km = propercars$lp100km,
+#              wt=propercars$wt,
+#              disp = propercars$disp,
+#              am = propercars$am,
+#              n = nrow(propercars))
 ```
 
 Running the Stan models:
 
 ```{r, echo = T, results = 'hide'}
-model_names <- c("wt_disp", "wt_am", "disp_am", "wt_disp_am")
-models <- list()
-
-for(mname in model_names){
-  fit <- stan(paste0(path, "stan_models/", mname,".stan"), data=dada, model_name = mname)
-  models[[mname]] <- fit
-}
+# model_names <- c("wt_disp", "wt_am", "disp_am", "wt_disp_am")
+# models <- list()
+# 
+# for(mname in model_names){
+#   fit <- stan(paste0(path, "stan_models/", mname,".stan"), data=dada, model_name = mname)
+#   models[[mname]] <- fit
+# }
 ```
 
 Looking at some convergence diagnostics:
 
 ```{r, results='asis'}
-for(mname in model_names){
-  # Extract convergence diagnostics from the model
-  diagnostics <- convergence_diagnostics(models[[mname]], mname)
-  # Output as a nice table
-  print(knitr::kable(diagnostics, caption = paste("lp100km ~", gsub("_", " + ", mname))))
-}
+# for(mname in model_names){
+#   # Extract convergence diagnostics from the model
+#   diagnostics <- convergence_diagnostics(models[[mname]], mname)
+#   # Output as a nice table
+#   print(knitr::kable(diagnostics, caption = paste("lp100km ~", gsub("_", " + ", mname))))
+# }
 ```
 
