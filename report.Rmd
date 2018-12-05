@@ -49,9 +49,12 @@ Before deciding on further preprocessing steps, we need to emplore the data a bi
 
 Setting up libraries and the project path:
 
-```{r}
-suppressMessages(library(rstan))
-suppressMessages(library(GGally))
+```{r, message=FALSE}
+library(rstan)
+library(GGally)
+library(dplyr)
+library(loo)
+library(gridExtra)
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
 path <- "~/Google_Drive/Kurssit/BDA/project/bdacars/"
@@ -93,36 +96,105 @@ All the relationships in the data seem to be linear, so there is no clear need f
 
 ## Modeling
 
+ADD DESCRIPTION OF THE MODELS
+
 Setting up the data into a Stan-friendly format:
 
 ```{r}
-# dada <- list(lp100km = propercars$lp100km,
-#              wt=propercars$wt,
-#              disp = propercars$disp,
-#              am = propercars$am,
-#              n = nrow(propercars))
+dada <- list(lp100km = propercars$lp100km,
+             wt=propercars$wt,
+             disp = propercars$disp,
+             am = propercars$am,
+             n = nrow(propercars))
 ```
 
-Running the Stan models:
+Next we will run the Stan models:
 
 ```{r, echo = T, results = 'hide'}
-# model_names <- c("wt_disp", "wt_am", "disp_am", "wt_disp_am")
-# models <- list()
-# 
-# for(mname in model_names){
-#   fit <- stan(paste0(path, "stan_models/", mname,".stan"), data=dada, model_name = mname)
-#   models[[mname]] <- fit
-# }
+model_names <- c("wt_disp", "wt_am", "disp_am", "wt_disp_am")
+models <- list()
+
+for(mname in model_names){
+  fit <- stan(paste0(path, "stan_models/", mname,".stan"), data=dada, model_name = mname)
+  models[[mname]] <- fit
+}
 ```
 
-Looking at some convergence diagnostics:
+Before comparing the performance of the models, we need to ensure a fair contest by checking that all of them have converged. Hear are the basic convergence diagnostics:
 
 ```{r, results='asis'}
-# for(mname in model_names){
-#   # Extract convergence diagnostics from the model
-#   diagnostics <- convergence_diagnostics(models[[mname]], mname)
-#   # Output as a nice table
-#   print(knitr::kable(diagnostics, caption = paste("lp100km ~", gsub("_", " + ", mname))))
-# }
+for(mname in model_names){
+  # Extract convergence diagnostics from the model
+  diagnostics <- convergence_diagnostics(models[[mname]], mname)
+  # Output as a nice table
+  print(knitr::kable(diagnostics, caption = paste("lp100km ~", gsub("_", " + ", mname))))
+}
 ```
 
+Since all the $\hat{R}$ values are close to 1, we can conclude that all the models have converged. We can now compare the models to find the best model for further analysis.
+
+### Model comparison:
+
+We will use leave-one-out cross validation (LOO-cv) to compare the performance of the models:
+
+```{r}
+# Initialize
+psisloos <- c()
+p_effs <- c()
+k_plots <- list()
+for(mname in model_names){
+  # Run LOO-cv
+  loglik <- extract_log_lik(models[[mname]], merge_chains = FALSE)
+  r_eff <- relative_eff(exp(loglik))
+  loocv <- suppressWarnings(loo(loglik, r_eff = r_eff))
+  
+  # PSIS-LOO value
+  psisloo <- loocv$estimates[1]
+  # Effective parameters
+  p_eff <- loocv$estimates[2]
+  # k-values
+  kval <- loocv$diagnostics$pareto_k
+  
+  # Combine results from the models
+  p_effs <- c(p_effs, p_eff)
+  psisloos <- c(psisloos, psisloo)
+  
+  # Plot of k-values
+  kvals <- data.frame(k = kval,
+                      x = 1:length(kval))
+  p <- ggplot(data=kvals, aes(x=x, y=k)) +
+    geom_point(color = 'red') +
+    geom_hline(yintercept=0.5, color = 'blue') +
+    ggtitle(mname) +
+    xlab("") +
+    ylab("k-value") +
+    theme_bw()
+  k_plots <- c(k_plots, list(p))
+}
+```
+
+The first step is to see if the k-values of LOO-cv are low enough so that we can trust the results:
+
+```{r, fig.width=10, fig.height=10}
+# Combine plots of the k-values
+grid.arrange(k_plots[[1]], k_plots[[2]], k_plots[[3]], k_plots[[4]], nrow=4, ncol=1)
+```
+
+With a few exceptions, most of the k-values seem to be low enough so that we can trust the results. The only one of the models that is raising some concern is the one with weight and displacement as the explanatory variables.
+
+Next, enter drumroll, let's look at the PSIS-LOO values. The higher the value, the better the performance of the model. Winner takes it all, other models are discarded before we continue any further.
+
+
+```{r}
+psisloosdf <- data.frame(psisloo = psisloos,
+                          model = model_names)
+ggplot(data=psisloosdf, aes(x=model, y=psisloo)) + geom_bar(stat="identity", width=0.5) +
+   geom_hline(yintercept=max(psisloos), color = 'blue')
+```
+
+```{r}
+psisloosdf %>%
+  arrange(desc(psisloo))
+```
+
+THE TRIFORCE WINS!!!!
