@@ -3,7 +3,7 @@ data {
   int<lower=0> n;
   vector[n] wt;
   vector[n] am;
-  vector[n] mpg;
+  vector[n] lp100km;
 }
 
 parameters {
@@ -19,11 +19,11 @@ transformed parameters{
 }
 
 model {
-  mpg ~ normal(mu, sigma);
+  lp100km ~ normal(mu, sigma);
 }
 
 generated quantities {
   vector[n] log_lik;
   for (i in 1:n)
-    log_lik[i] = normal_lpdf(mpg[i] |mu[i] , sigma);
+    log_lik[i] = normal_lpdf(lp100km[i] |mu[i] , sigma);
 }

@@ -9,6 +9,7 @@ Setting up libraries and the project path:
 
 ```{r}
 suppressMessages(library(rstan))
+suppressMessages(library(GGally))
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
 path <- "~/Google_Drive/Kurssit/BDA/project/bdacars/"
@@ -21,18 +22,18 @@ Transform data into proper (Finnish) units:
 propercars <- data.frame(wt = mtcars$wt/2.205,
                          disp = mtcars$disp/61.024,
                          lp100km = 235.215/mtcars$mpg,
-                         am = factor(mtcars$am))
+                         am = mtcars$am)
 ```
 
 
 Setting up the data into a Stan-friendly format:
 
 ```{r}
-dada <- list(mpg = mtcars$mpg,
-             wt=mtcars$wt,
-             disp = mtcars$disp,
-             am = mtcars$am,
-             n = nrow(mtcars))
+dada <- list(lp100km = propercars$lp100km,
+             wt=propercars$wt,
+             disp = propercars$disp,
+             am = propercars$am,
+             n = nrow(propercars))
 ```
 
 Running the Stan models:
@@ -54,7 +55,7 @@ for(mname in model_names){
   # Extract convergence diagnostics from the model
   diagnostics <- convergence_diagnostics(models[[mname]], mname)
   # Output as a nice table
-  print(knitr::kable(diagnostics, caption = paste("mpg ~", gsub("_", " + ", mname))))
+  print(knitr::kable(diagnostics, caption = paste("lp100km ~", gsub("_", " + ", mname))))
 }
 ```
 
