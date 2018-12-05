@@ -15,6 +15,16 @@ path <- "~/Google_Drive/Kurssit/BDA/project/bdacars/"
 source(paste0(path, "functions.R"))
 ```
 
+Transform data into proper (Finnish) units:
+
+```{r}
+propercars <- data.frame(wt = mtcars$wt/2.205,
+                         disp = mtcars$disp/61.024,
+                         lp100km = 235.215/mtcars$mpg,
+                         am = factor(mtcars$am))
+```
+
+
 Setting up the data into a Stan-friendly format:
 
 ```{r}
