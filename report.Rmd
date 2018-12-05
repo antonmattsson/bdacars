@@ -5,6 +5,48 @@ output:
     df_print: paged
 ---
 
+## Introduction
+
+If you're reading this, you have probably heard about mtcars. If not, you're about to.
+
+Originally extracted from the US magazine Motor Trend in the 1970s, this dataset of car performance and design information has inspired a load of applications of statistical models, notably in regression. For some reason, we have never actually analyzed this dataset on any course before, and now is our chance to take a swing at it. The Bayesian way. Let's see what we have on our hands:
+
+### The dataset
+
+The dataset consists of 32 cars, for which the following information has been recorded:
+
+- Miles per gallon  (a measure of fuel consumption)
+- Number of cylinders
+- Displacement (the total volume of the cylinders)
+- Gross horsepower
+- Rear axle ratio (related to towing capabilities)
+- Weight
+- ¼ mile time (how fast the car can traverse a quarter mile)
+- shape of the engine – straight vs V-shaped
+- Transmission  - automatic vs manual
+- Number of forward gears
+- Number of carburetors
+
+The dataset naturally calls for a regression model to study the effect of car design choices on fuel consumption. Here's our approach:
+
+### The analysis problem
+
+We will analyze three different factors potentially affecting fuel consumption: car weight, displacement and transmission. We hypothesize that heavier cars with bigger engines should consume more fuel i.e. they should have a lower miles per gallon (mpg) score. Altough we do assume that weight and displacement are correlated, so it'll be interesting to see how we can separate the two effects.  We also hypothesize that automatic cars consume less fuel than manual cars, since the automatic gearbox can optimize gears used better than a human driver.
+
+To find out which of the three variables best predict fuel consumption, we will try four different models: one model for each pair of predictors and a model with all three included. We will then choose the best model and continue with the analysis.
+
+### Unit conversions
+
+The dataset is quite clean: no missing data or any nasty things to deal with. There is one problem we need to tackle right away, though. The units. Miles per gallon is not very easy to interpret to a Finnish person, especially because we are used to measuring fuel consumption directly, instead of measuring how far we can get with a fixed volume of fuel. Also, car displacement is recorded in cubic inches and car weight in pounds. Yep, the first step is to convert them to Finnish units so we don't need to do mental work interpreting every single figure and coefficient. Here are the conversions:
+
+- Fuel consumption: Miles per US gallon $\rightarrow$ litres per 100 km
+- Weight: 1000 pounds $\rightarrow$ metric tons (1000 kg)
+- Displacement: Cubic inches $\rightarrow$ litres
+
+Before deciding on further preprocessing steps, we need to emplore the data a bit.
+
+## Exploratory analysis
+
 Setting up libraries and the project path:
 
 ```{r}
@@ -16,7 +58,7 @@ path <- "~/Google_Drive/Kurssit/BDA/project/bdacars/"
 source(paste0(path, "functions.R"))
 ```
 
-Transform data into proper (Finnish) units:
+Apply the unit conversions:
 
 ```{r}
 propercars <- data.frame(wt = mtcars$wt/2.205,
@@ -25,10 +67,7 @@ propercars <- data.frame(wt = mtcars$wt/2.205,
                          am = mtcars$am)
 ```
 
-
-### Exploratory analysis
-
-Before starting with the actual analysis, let's look at the data! A good first step is to plot the variables against each other. The ```ggpairs``` function fomr the ```GGally``` package comes in handy:
+Now that we got the units right, let's take a lok at the data! A good first step is to plot the variables against each other. The ```ggpairs``` function fomr the ```GGally``` package comes in handy:
 
 ```{r, fig.width=10, fig.height=10}
 # Change am to factor for correct plotting
@@ -50,8 +89,9 @@ First, let's look at the third row. It displays fuel consumption as a function o
 
 Next up, the top two rows where we observe the relationships between our potential explanatory variables. The short story is : they're correlated. The Pearson correlation coefficient between weight and displacement is just shy of 0.9. In addition, automatic cars seem to be heavier an equipped with larger engines than manual cars. Maybe this explains their higher fuel consumption! We'll see after we run our models.
 
+All the relationships in the data seem to be linear, so there is no clear need for transformation of variables. We can now move to the modeling part.
 
-### Modeling
+## Modeling
 
 Setting up the data into a Stan-friendly format:
 
