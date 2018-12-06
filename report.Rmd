@@ -100,7 +100,7 @@ All the relationships in the data seem to be linear, so there is no clear need f
 ```{r}
 # Only scale numeric variables
 scaledcars <- propercars
-scaledcars[c("wt", "disp", "lp100km")] <- scale(scaledcars[c("wt", "disp", "lp100km")])
+scaledcars[1:3] <- scale(scaledcars[1:3])
 ```
 
 We are now ready to move to the modeling part!
@@ -270,3 +270,27 @@ knitr::kable(psisloosdf %>%  arrange(desc(psisloo)),
 ```
 
 The best model is the one with only weight and displacement as predictors, and adding gearbox type to the predictors does not improve performance. So it seems that the difference in fuel consumption between automatic and manual cars was indeed primarily due to the fact that the automatic cars were heavier and equipped with larger engines. Or at least we would need a more diverse dataset to make inferences about the effect of the gearbox.
+
+
+Let's continue analysis with the best model.
+
+```{r}
+fit <- models[["wt_disp"]]
+```
+
+Since we only have two regression coefficients, it is easy for us to visualize the parameter space:
+
+```{r}
+fit_df <- as.data.frame(fit)[1:4]
+
+ggplot(fit_df, aes(beta_wt, beta_disp, color=sigma)) +
+  geom_point(alpha = 0.3) +
+  geom_density2d(color = "white") +
+  scale_color_viridis_c(option = 'inferno') +
+  labs(title = 'Stan parameter space') +
+  theme_bw()
+```
+
+There is a negative correlation between the two parameters, which makes sense, since if one of the predictors has a high coefficient, there is not much variation of fuel consumption left for the other predictor to explain (remember that the predictors weight and displacement are themselves heavily correlated).
+
+

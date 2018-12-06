@@ -2,7 +2,7 @@
 # fit = stan fit object
 # model name = string, e.g. "wt_am"
 # Returns: a data frame of convergence diagnostics
-convergence_diagnostics <- function(fit, model_name){
+model_summary <- function(fit, model_name){
   # parameter names (split the model name by "_", add beta_ prefix + alpha, sigma)
   params <- c("alpha", paste0("beta_", unlist(strsplit(model_name, split="_"))), "sigma")
   # Get summary table
