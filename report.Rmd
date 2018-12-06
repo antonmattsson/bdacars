@@ -83,7 +83,8 @@ lower <- list(continuous = "smooth",
 ggpairs(plotcars,
         lower = lower,
         showStrips = TRUE,
-        progress = FALSE) +
+        progress = FALSE,
+        title = "Original data in Finnish units") +
   theme_bw()
 ```
 
@@ -92,23 +93,94 @@ First, let's look at the third row. It displays fuel consumption as a function o
 
 Next up, the top two rows where we observe the relationships between our potential explanatory variables. The short story is : they're correlated. The Pearson correlation coefficient between weight and displacement is just shy of 0.9. In addition, automatic cars seem to be heavier an equipped with larger engines than manual cars. Maybe this explains their higher fuel consumption! We'll see after we run our models.
 
-All the relationships in the data seem to be linear, so there is no clear need for transformation of variables. We can now move to the modeling part.
+### Preprocessing
+
+All the relationships in the data seem to be linear, so there is no clear need for non-linear transformation of variables. We will perform standard procedures of mean-centering and scaling by standard deviation before modeling. While mean centering does not change the regression coefficients, it makes the interpretation of the model intercepts more meaningful. Scaling by standard deviation in addition to mean centering makes our variables have mean 0 and standard deviation of 1. This will make choosing priors for the regression coefficients easier, as we know we are dealing with unit scale variables.
+
+```{r}
+# Only scale numeric variables
+scaledcars <- propercars
+scaledcars[c("wt", "disp", "lp100km")] <- scale(scaledcars[c("wt", "disp", "lp100km")])
+```
+
+We are now ready to move to the modeling part!
 
 ## Modeling
 
-ADD DESCRIPTION OF THE MODELS
+### Linear models
 
-Setting up the data into a Stan-friendly format:
+We performed bayesian linear regression, i.e. we will model fuel consumption using a linear models of form:
+$$y \sim N(\alpha + \beta X,\, \sigma^2)$$
+where $y$ is fuel consumption, $X$ is the matrix of predictor variables and $\alpha, \beta$ are the intercept and regression coefficients, respectively.
 
-```{r}
-dada <- list(lp100km = propercars$lp100km,
-             wt=propercars$wt,
-             disp = propercars$disp,
-             am = propercars$am,
-             n = nrow(propercars))
+As mentioned before, we will try out four different models: one model for each pair of predictors and a model with all three included. We will then choose the best model and continue with the analysis.
+
+### Priors
+
+We used weakly informative priors, recommended as good default priors in [Gelman (2008)](http://www.stat.columbia.edu/~gelman/research/published/priors11.pdf). Te prior for $\alpha$ is a Caucy distribution with center 0 and scale 10. As priors for the regression coefficients $\beta$ we used a Student's t distribution with 3 degrees of freedom, mean 0 and standard deviation 2 for weight and displacement and standard deviation 3 for gearbox. The rule of thumb of weakly informative distributions is that the standard deviation of the posterior distribution should be less than 0.1 times that of the prior. The standard deviations of the priors were chosen so that this rule was respected.
+
+The Student's t distributions have narrower tails than the Cauchy distribution with center 0 and scale 2.5 originally recommended in [Gelman (2008)](http://www.stat.columbia.edu/~gelman/research/published/priors11.pdf), and has later been observed to perform better, as noted in the [Stan prior choice recommendations](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations). 
+
+### Stan model
+
+The Stan code for the model with all the three predictors included looks like this:
+
+```{stan, output.var="esa", eval=FALSE}
+data {
+  int<lower=0> n;
+  vector[n] wt;
+  vector[n] disp;
+  vector[n] am;
+  vector[n] lp100km;
+}
+
+// We name the components of beta explicitly
+// While a bit cumbersome, this helps interpretation
+// and lowers chances of error
+parameters {
+  real alpha;
+  real beta_wt;
+  real beta_disp;
+  real beta_am;
+  real<lower=0> sigma;
+}
+// The conditional mean for the linear model
+transformed parameters{
+  vector[n] mu;
+  mu = alpha + beta_wt*wt + beta_disp*disp + beta_am*am;
+}
+
+model {
+  // Priors
+  alpha ~ cauchy(0,10);
+  beta_wt ~ student_t(3,0,2);
+  beta_disp ~ student_t(3,0,2);
+  beta_am ~ student_t(3,0,3);
+  // The linear model
+  lp100km ~ normal(mu, sigma);
+}
+
+// Log likelihoods genereated for LOO
+generated quantities {
+  vector[n] log_lik;
+  for (i in 1:n)
+    log_lik[i] = normal_lpdf(lp100km[i] |mu[i] , sigma);
+}
 ```
 
-Next we will run the Stan models:
+The other models are identical, with one of the predictor variables removed.
+
+It is about time we see some results. Let's set up the data into a Stan-friendly format:
+
+```{r}
+dada <- list(lp100km = scaledcars$lp100km,
+             wt=scaledcars$wt,
+             disp = scaledcars$disp,
+             am = scaledcars$am,
+             n = nrow(scaledcars))
+```
+
+And run the Stan models:
 
 ```{r, echo = T, results = 'hide'}
 model_names <- c("wt_disp", "wt_am", "disp_am", "wt_disp_am")
@@ -120,18 +192,18 @@ for(mname in model_names){
 }
 ```
 
-Before comparing the performance of the models, we need to ensure a fair contest by checking that all of them have converged. Hear are the basic convergence diagnostics:
+Before comparing the performance of the models, we need to ensure a fair contest by checking that all of them have converged. Hear are the basic model summaries:
 
 ```{r, results='asis'}
 for(mname in model_names){
   # Extract convergence diagnostics from the model
-  diagnostics <- convergence_diagnostics(models[[mname]], mname)
+  smry <- model_summary(models[[mname]], mname)
   # Output as a nice table
-  print(knitr::kable(diagnostics, caption = paste("lp100km ~", gsub("_", " + ", mname))))
+  print(knitr::kable(smry, caption = paste("lp100km ~", gsub("_", " + ", mname))))
 }
 ```
 
-Since all the $\hat{R}$ values are close to 1, we can conclude that all the models have converged. We can now compare the models to find the best model for further analysis.
+Since all the $\hat{R}$ values are close to 1, we can conclude that all the models have converged. We can now compare the models to find the best model for further analysis. In addition, the standard deviations of all the parameters are below 0.1 times the standard deviations of the priors, as we wanted.
 
 ### Model comparison:
 
@@ -193,8 +265,8 @@ ggplot(data=psisloosdf, aes(x=model, y=psisloo)) + geom_bar(stat="identity", wid
 ```
 
 ```{r}
-psisloosdf %>%
-  arrange(desc(psisloo))
+knitr::kable(psisloosdf %>%  arrange(desc(psisloo)),
+             caption = "PSIS-LOO values")
 ```
 
-THE TRIFORCE WINS!!!!
+The best model is the one with only weight and displacement as predictors, and adding gearbox type to the predictors does not improve performance. So it seems that the difference in fuel consumption between automatic and manual cars was indeed primarily due to the fact that the automatic cars were heavier and equipped with larger engines. Or at least we would need a more diverse dataset to make inferences about the effect of the gearbox.
