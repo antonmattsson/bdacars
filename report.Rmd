@@ -70,6 +70,12 @@ propercars <- data.frame(wt = mtcars$wt/2.205,
                          am = mtcars$am)
 ```
 
+For clarity, the abbreviations for the variables we use are:  
+- wt = weight
+- disp = displacement
+- lp100km = litres per 100 km
+- am = type of gearbox, 0 = automatic, 1 = manual
+
 Now that we got the units right, let's take a lok at the data! A good first step is to plot the variables against each other. The ```ggpairs``` function fomr the ```GGally``` package comes in handy:
 
 ```{r, fig.width=10, fig.height=10}
@@ -117,9 +123,12 @@ As mentioned before, we will try out four different models: one model for each p
 
 ### Priors
 
-We used weakly informative priors, recommended as good default priors in [Gelman (2008)](http://www.stat.columbia.edu/~gelman/research/published/priors11.pdf). Te prior for $\alpha$ is a Caucy distribution with center 0 and scale 10. As priors for the regression coefficients $\beta$ we used a Student's t distribution with 3 degrees of freedom, mean 0 and standard deviation 2 for weight and displacement and standard deviation 3 for gearbox. The rule of thumb of weakly informative distributions is that the standard deviation of the posterior distribution should be less than 0.1 times that of the prior. The standard deviations of the priors were chosen so that this rule was respected.
+We use weakly informative priors, recommended as good default priors in [Stan prior choice recommendations](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations). The prior for $\alpha$ is a Cauchy distribution with center 0 and scale 10. As priors for the regression coefficients $\beta$ we use a Student's t distribution with 3 degrees of freedom, location 0 and scale 2. For the standard deviation of the posterior distribution, $\sigma$ we use a half-normal (0, 10) distribution.
 
-The Student's t distributions have narrower tails than the Cauchy distribution with center 0 and scale 2.5 originally recommended in [Gelman (2008)](http://www.stat.columbia.edu/~gelman/research/published/priors11.pdf), and has later been observed to perform better, as noted in the [Stan prior choice recommendations](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations). 
+The rule of thumb for weakly informative distributions is that the standard deviation of the posterior distribution should be less than 0.1 times that of the prior. The scales of the priors were chosen so that this rule is respected. To do this, we need to calculate the standard deviation of the prior. For a t-distribution with scale $s$ and $\nu$ degrees of freedom, the standard deviation is:
+$$\sqrt{s^2\cdot \frac{\nu}{\nu -2}} = \sqrt{2^2 * \frac{3}{3-2}} = 2\cdot\sqrt{3} \approx 3.46$$
+For a Cauchy distribution, the standard deviation is not defined, and for the normal prior of $\sigma$ we use standard deviation of 10.
+
 
 ### Stan model
 
@@ -155,7 +164,8 @@ model {
   alpha ~ cauchy(0,10);
   beta_wt ~ student_t(3,0,2);
   beta_disp ~ student_t(3,0,2);
-  beta_am ~ student_t(3,0,3);
+  beta_am ~ student_t(3,0,2);
+  sigma ~ normal(0, 10);
   // The linear model
   lp100km ~ normal(mu, sigma);
 }
@@ -204,6 +214,8 @@ for(mname in model_names){
 ```
 
 Since all the $\hat{R}$ values are close to 1, we can conclude that all the models have converged. We can now compare the models to find the best model for further analysis. In addition, the standard deviations of all the parameters are below 0.1 times the standard deviations of the priors, as we wanted.
+
+
 
 ### Model comparison:
 
@@ -293,4 +305,43 @@ ggplot(fit_df, aes(beta_wt, beta_disp, color=sigma)) +
 
 There is a negative correlation between the two parameters, which makes sense, since if one of the predictors has a high coefficient, there is not much variation of fuel consumption left for the other predictor to explain (remember that the predictors weight and displacement are themselves heavily correlated).
 
+Let's look at the individual distributions of the parameters:
 
+```{r, fig.width=10, fig.height=4}
+wt_p <- ggplot(fit_df, aes(beta_wt)) +
+  geom_histogram(bins = 50, fill = "grey70", color = "grey50") +
+  theme_bw()
+
+disp_p <- ggplot(fit_df, aes(beta_disp)) +
+  geom_histogram(bins = 50, fill = "grey70", color = "grey50") +
+  theme_bw()
+
+grid.arrange(wt_p, disp_p, ncol = 2)
+```
+
+For both of the regression coefficients, the vast majority of the draws are positive. To get a numeric estimate of the relevance of the two paramters, let's take a closer look at the summary statistics of the model:
+
+```{r}
+beta_smry <- summary(fit, pars = c("beta_wt", "beta_disp"))$summary
+knitr::kable(beta_smry, digits = 3)
+```
+
+We also want to know the probabiliity that heavier cars and larger engines make the fuel consumption higher:
+
+```{r}
+fit_df %>% select(beta_wt, beta_disp) %>% sapply(function(x){sum(x > 0)/length(x)})
+```
+
+Unsurprisingly, we can conclude that  both weight and displacement are related to fuel consumption with a very high probability. But what about the effect size? We have so far only reported the effect size in the scaled units. It is not sufficient to know that heavier cars consume more fuel, we want to know _how much more_. Let's take some key statistics of the last table and transform them back to the original units.
+
+```{r}
+# Compute standard deviations of the predictors
+sds <- sapply(propercars[c("wt", "disp", "lp100km")], sd)
+# Scale back to original units
+orig_smry <- beta_smry[, c(1, 4:8)]
+orig_smry[1,] <- orig_smry[1,]/sds["wt"] * sds["lp100km"]
+orig_smry[2,] <- orig_smry[2,]/sds["disp"] * sds["lp100km"]
+knitr::kable(orig_smry, digits = 3)
+```
+
+Now this is easier to interpret! So an increase of a ton in car weight will on average cause an increase of approximately 4.5 liters per 100 km in fuel consumption. Meanwhile, increasing engine displacement by one litre results in an increase of approximately 0.8 litres per 100km in fuel consumption. 
