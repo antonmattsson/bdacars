@@ -297,29 +297,25 @@ Let's confirm the explanatory power of our selected predictors by examining the 
 
 ```{r}
 # Extract
-alpha <- extract(models[["wt_disp"]], "alpha")
-beta_wt <- extract(models[["wt_disp"]], "beta_wt")
-beta_disp <- extract(models[["wt_disp"]], "beta_disp")
+exmu <- extract(models[["wt_disp"]], "mu")$mu
+exsigma <- extract(models[["wt_disp"]], "sigma")$sigma
 
-# Get means for calculating residuals
-mean_alpha <- mean(alpha$alpha)
-mean_beta_wt <- mean(beta_wt$beta_wt)
-mean_beta_disp <- mean(beta_disp$beta_disp)
+# Sample from the posterior predictive distribution
+set.seed(38)
+samples <- matrix(0, nrow=nrow(exmu), ncol=ncol(exmu))
+for(i in 1:nrow(exmu)){
+  for(j in 1:ncol(exmu)){
+    samples[i,j] <- rnorm(1, mean=exmu[i,j], sd = exsigma[i])
+  }
+}
 
-# Residuals
-predicted <- mean_alpha + mean_beta_wt*scaledcars$wt + mean_beta_disp*scaledcars$disp
-residuals <- scaledcars$lp100km - predicted
-
-resids_df <- data.frame(scaledcars$wt, scaledcars$disp, residuals)
-colnames(resids_df) <- c("Weight", "Displacement", "Residuals")
-
-# plot
-p <- ggplot(resids_df, aes(resids_df$Weight, resids_df$Residuals)) + 
-  geom_point(color='red') + 
-  geom_hline(yintercept = 0) +
-  scale_y_continuous(name="Residuals") +
-  scale_x_continuous(name="Weight")
-p
+# Plot densities of the original and the predictive distribution
+plot_df <- data.frame(lp100km = c(as.vector(samples), scaledcars$lp100km),
+                      Distribution = rep(c("Posterior", "Original"), times=c(length(samples), nrow(scaledcars))))
+ggplot(plot_df, aes(lp100km, color = Distribution)) +
+  geom_density() +
+  scale_color_brewer(palette = "Set1") +
+  theme_bw()
 ```
 The resulting plot exhibits significant heteroskedasticity. This could be an indicator of poorly choosen parameters, i.e. fuel consumption is affected by information we haven't included in our model. Let's take a quick look at the original dataset and it's correlation matrix.
 
