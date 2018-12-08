@@ -28,7 +28,8 @@ model {
   alpha ~ cauchy(0,10);
   beta_wt ~ student_t(3,0,2);
   beta_disp ~ student_t(3,0,2);
-  beta_am ~ student_t(3,0,3);
+  beta_am ~ student_t(3,0,2);
+  sigma ~ normal(0, 10);
   // The linear model
   lp100km ~ normal(mu, sigma);
 }
