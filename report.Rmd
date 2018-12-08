@@ -187,6 +187,7 @@ dada <- list(lp100km = scaledcars$lp100km,
              wt=scaledcars$wt,
              disp = scaledcars$disp,
              am = scaledcars$am,
+             drat = scaledcars$drat,
              n = nrow(scaledcars))
 ```
 
@@ -213,7 +214,16 @@ for(mname in model_names){
 }
 ```
 
-Since all the $\hat{R}$ values are close to 1, we can conclude that all the models have converged. We can now compare the models to find the best model for further analysis. In addition, the standard deviations of all the parameters are below 0.1 times the standard deviations of the priors, as we wanted.
+Since all the $\hat{R}$ values are close to 1, we can conclude that all the models have converged. Finally we will take a look at divergences to see if our MCMC estimators have explored the target distributions adequately.
+
+```{r}
+for(mname in model_names){
+  check_divergences(models[[mname]])
+}
+```
+None of the models exhibited any divergences. This is to be expected as our models were simple linear models, which are not particularly prone to pathologic target distributions. 
+
+We can now compare the models to find the best model for further analysis. In addition, the standard deviations of all the parameters are below 0.1 times the standard deviations of the priors, as we wanted.
 
 
 
@@ -283,9 +293,69 @@ knitr::kable(psisloosdf %>%  arrange(desc(psisloo)),
 
 The best model is the one with only weight and displacement as predictors, and adding gearbox type to the predictors does not improve performance. So it seems that the difference in fuel consumption between automatic and manual cars was indeed primarily due to the fact that the automatic cars were heavier and equipped with larger engines. Or at least we would need a more diverse dataset to make inferences about the effect of the gearbox.
 
+Let's confirm the explanatory power of our selected predictors by examining the heteroskedasticity of our model visually. We calculate residuals by using the means of our parameter distributions to procure predicted values.
 
-Let's continue analysis with the best model.
+```{r}
+# Extract
+alpha <- extract(models[["wt_disp"]], "alpha")
+beta_wt <- extract(models[["wt_disp"]], "beta_wt")
+beta_disp <- extract(models[["wt_disp"]], "beta_disp")
 
+# Get means for calculating residuals
+mean_alpha <- mean(alpha$alpha)
+mean_beta_wt <- mean(beta_wt$beta_wt)
+mean_beta_disp <- mean(beta_disp$beta_disp)
+
+# Residuals
+predicted <- mean_alpha + mean_beta_wt*scaledcars$wt + mean_beta_disp*scaledcars$disp
+residuals <- scaledcars$lp100km - predicted
+
+resids_df <- data.frame(scaledcars$wt, scaledcars$disp, residuals)
+colnames(resids_df) <- c("Weight", "Displacement", "Residuals")
+
+# plot
+p <- ggplot(resids_df, aes(resids_df$Weight, resids_df$Residuals)) + 
+  geom_point(color='red') + 
+  geom_hline(yintercept = 0) +
+  scale_y_continuous(name="Residuals") +
+  scale_x_continuous(name="Weight")
+p
+```
+The resulting plot exhibits significant heteroskedasticity. This could be an indicator of poorly choosen parameters, i.e. fuel consumption is affected by information we haven't included in our model. Let's take a quick look at the original dataset and it's correlation matrix.
+
+```{r}
+library(lattice)
+mat <- cor(mtcars)
+levelplot(mat)
+```
+The correlation matrix above would indicate that in addition to engine displacement and car weight, the number of cylinders, gross horsepower and number of carburetors are predictors that might benefit our models. Nevertheless, we've already chosen the scope of our study and will continue with the best model within our predictor space. We'll begin with posterior predictive checking to see if our model produces believable measurements.
+
+```{r, fig.width = 8}
+exmu <- extract(models[["wt_disp"]], "mu")$mu
+exsigma <- extract(models[["wt_disp"]], "sigma")$sigma
+
+# Sample from the posterior predictive distribution
+set.seed(38)
+samples <- matrix(0, nrow=nrow(exmu), ncol=ncol(exmu))
+for(i in 1:nrow(exmu)){
+  for(j in 1:ncol(exmu)){
+    samples[i,j] <- rnorm(1, mean=exmu[i,j], sd = exsigma[i])
+  }
+}
+
+# Plot densities of the original and the predictive distribution
+plot_df <- data.frame(lp100km = c(as.vector(samples), scaledcars$lp100km),
+                      Distribution = rep(c("Posterior", "Original"), times=c(length(samples), nrow(scaledcars))))
+ggplot(plot_df, aes(lp100km, color = Distribution)) +
+  geom_density() +
+  scale_color_brewer(palette = "Set1") +
+  theme_bw()
+
+```
+
+The posterior predictive distribution is very close to the original one, altough it is less favorable to the high fuel consumption. The predictive distribution seems credible.
+
+Let us next inspect our parameter space more closely.
 ```{r}
 fit <- models[["wt_disp"]]
 ```
@@ -326,7 +396,7 @@ beta_smry <- summary(fit, pars = c("beta_wt", "beta_disp"))$summary
 knitr::kable(beta_smry, digits = 3)
 ```
 
-We also want to know the probabiliity that heavier cars and larger engines make the fuel consumption higher:
+We also want to know the probability that heavier cars and larger engines make the fuel consumption higher:
 
 ```{r}
 fit_df %>% select(beta_wt, beta_disp) %>% sapply(function(x){sum(x > 0)/length(x)})
