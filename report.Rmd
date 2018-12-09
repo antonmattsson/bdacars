@@ -124,12 +124,7 @@ As mentioned before, we will try out four different models: one model for each p
 
 ### Priors
 
-We use weakly informative priors, recommended as good default priors in [Stan prior choice recommendations](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations). The prior for $\alpha$ is a Cauchy distribution with center 0 and scale 10. As priors for the regression coefficients $\beta$ we use a Student's t distribution with 3 degrees of freedom, location 0 and scale 2. For the standard deviation of the posterior distribution, $\sigma$ we use a half-normal (0, 10) distribution.
-
-The rule of thumb for weakly informative distributions is that the standard deviation of the posterior distribution should be less than 0.1 times that of the prior. The scales of the priors were chosen so that this rule is respected. To do this, we need to calculate the standard deviation of the prior. For a t-distribution with scale $s$ and $\nu$ degrees of freedom, the standard deviation is:
-$$\sqrt{s^2\cdot \frac{\nu}{\nu -2}} = \sqrt{2^2 * \frac{3}{3-2}} = 2\cdot\sqrt{3} \approx 3.46$$
-For a Cauchy distribution, the standard deviation is not defined, and for the normal prior of $\sigma$ we use standard deviation of 10.
-
+We use weakly informative priors, recommended as good default priors in [Stan prior choice recommendations](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations). The prior for $\alpha$ is a Cauchy distribution with center 0 and scale 10. As priors for the regression coefficients $\beta$ we use a Student's t distribution with 3 degrees of freedom, location 0 and scale 2. For the standard deviation of the posterior distribution, $\sigma$ we use a half-normal (0, 10) distribution. More information about the prior distributions and why they are weakly informative can be found in the appendix.
 
 ### Stan model
 
@@ -215,7 +210,7 @@ for(mname in model_names){
 }
 ```
 
-Since all the $\hat{R}$ values are close to 1, we can conclude that all the models have converged. In addition, the standard deviations of all the parameters are below 0.1 times the standard deviations of the priors, as we wanted. Finally, we will take a look at divergences to see if our MCMC estimators have explored the target distributions adequately.
+Since all the $\hat{R}$ values are close to 1, we can conclude that all the models have converged. Next, we will take a look at divergences to see if our MCMC estimators have explored the target distributions adequately.
 
 ```{r}
 for(mname in model_names){
@@ -465,6 +460,15 @@ We set out to do A. We did A, encountered some problems (with heteroskedasticity
 
 ## Appendix?
 
+### Prior distributions
+
+In the report, we didn't explain how we ended up with the scale 2 for the t-distributions and why the priors can indeed be regarded as weakly informative.
+
+The rule of thumb for weakly informative distributions is that the standard deviation of the posterior distribution should be less than 0.1 times that of the prior. The scales of the priors were chosen so that this rule is respected. To do this, we need to calculate the standard deviation of the prior. For a t-distribution with scale $s$ and $\nu$ degrees of freedom, the standard deviation is:
+$$\sqrt{s^2\cdot \frac{\nu}{\nu -2}} = \sqrt{2^2 * \frac{3}{3-2}} = 2\cdot\sqrt{3} \approx 3.46$$
+For a Cauchy distribution, the standard deviation is not defined, and for the normal prior of $\sigma$ we use standard deviation of 10.
+
+Looking at the model summaries shown in the main report, we can see that the the standard deviations of all the parameters are below 0.1 times the standard deviations of the priors, as we wanted.
 
 ### Sensitivity analysis
 
