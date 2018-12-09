@@ -65,8 +65,8 @@ library(loo)
 library(gridExtra)
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
-path <- "C:/Users/esatu/Dropbox/Aalto/Bayesian Data Analysis/Project/"
-#path <- "~/Google_Drive/Kurssit/BDA/project/bdacars/"
+#path <- "C:/Users/esatu/Dropbox/Aalto/Bayesian Data Analysis/Project/"
+path <- "~/Google_Drive/Kurssit/BDA/project/bdacars/"
 source(paste0(path, "functions.R"))
 ```
 
@@ -463,7 +463,7 @@ grid.arrange(wt_p2, disp_p2, ncol = 2)
 
 ## Conclusion and discussion
 
-We were interested in the effects that car weight, engine displacement and transmission type has on fuel consumption with regards to the Motor Trends dataset from the 1970s. Our initial exploratory analysis revealed that especially weight and engine displacement would be great predictors for further modeling. Additionally, the data on transmission type subverted our expectations by showing less fuel consumption for manual transmission. There were hints in the data that the result might simply be caused by imbalances regarding weight and displacement distributions. We built four linear models with weakly informative priors to properly stack the predictors against each other, and found out that indeed, the model with weight and displacement performed best, assessing by PSIS-LOO. Including the transmission type into the model had more of a noising effect, which lends credit to our initial idea of weight/displacement imbalances in the transmission type categories.
+We were interested in the effects that car weight, engine displacement and transmission type have on fuel consumption with regards to the Motor Trends dataset from the 1970s. Our initial exploratory analysis revealed that especially weight and engine displacement would be great predictors for further modeling. Additionally, the data on transmission type subverted our expectations by showing less fuel consumption for manual transmission. There were hints in the data that the result might simply be caused by imbalances regarding weight and displacement distributions. We built four linear models with weakly informative priors to properly stack the predictors against each other, and found out that indeed, the model with weight and displacement performed best, assessing by PSIS-LOO. Including the transmission type into the model had more of a noising effect, which lends credit to our initial idea of weight/displacement imbalances in the transmission type categories.
 
 We end up concluding that both weight and engine displacement have a very high probability of increasing fuel consumption, with an effect size 4.5 l/100km per a tonne of added weight and 0.8 l/100km per a litre of increased displacement. 
 
@@ -482,6 +482,44 @@ For a Cauchy distribution, the standard deviation is not defined, and for the no
 Looking at the model summaries shown in the main report, we can see that the the standard deviations of all the parameters are below 0.1 times the standard deviations of the priors, as we wanted.
 
 ### Sensitivity analysis
+
+The Stan model with noninformative priors:
+
+```{stan, output.var = "anton", eval=FALSE}
+// All variables listed so the same data can be used for all the models
+data {
+  int<lower=0> n;
+  vector[n] wt;
+  vector[n] disp;
+  vector[n] am;
+  vector[n] lp100km;
+}
+
+parameters {
+  real alpha;
+  real beta_wt;
+  real beta_disp;
+  real<lower=0> sigma;
+}
+
+transformed parameters{
+  vector[n] mu;
+  mu = alpha + beta_wt*wt + beta_disp*disp;
+}
+
+model {
+  // The linear model
+  lp100km ~ normal(mu, sigma);
+}
+
+generated quantities {
+  vector[n] log_lik;
+  for (i in 1:n)
+    log_lik[i] = normal_lpdf(lp100km[i] |mu[i] , sigma);
+}
+
+```
+
 
 Code for fitting the model and visualizing parameter space:
 
