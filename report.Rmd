@@ -21,7 +21,7 @@ The dataset consists of 32 cars, for which the following information has been re
 - Gross horsepower
 - Rear axle ratio (related to towing capabilities)
 - Weight
-- ¼ mile time (how fast the car can traverse a quarter mile)
+- ? mile time (how fast the car can traverse a quarter mile)
 - shape of the engine - straight vs V-shaped
 - Transmission  - automatic vs manual
 - Number of forward gears
@@ -57,7 +57,8 @@ library(loo)
 library(gridExtra)
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
-path <- "C:/Users/esatu/Dropbox/Aalto/Bayesian Data Analysis/Project/"
+#path <- "C:/Users/esatu/Dropbox/Aalto/Bayesian Data Analysis/Project/"
+path <- "~/Google_Drive/Kurssit/BDA/project/bdacars/"
 source(paste0(path, "functions.R"))
 ```
 
@@ -293,6 +294,8 @@ knitr::kable(psisloosdf %>%  arrange(desc(psisloo)),
 
 The best model is the one with only weight and displacement as predictors, and adding gearbox type to the predictors does not improve performance. So it seems that the difference in fuel consumption between automatic and manual cars was indeed primarily due to the fact that the automatic cars were heavier and equipped with larger engines. Or at least we would need a more diverse dataset to make inferences about the effect of the gearbox.
 
+### Model diagnostics
+
 Let's confirm the explanatory power of our selected predictors by examining the heteroskedasticity of our model visually. We calculate residuals by using the means of our parameter distributions to procure predicted values.
 
 ```{r}
@@ -352,6 +355,8 @@ ggplot(plot_df, aes(lp100km, color = Distribution)) +
 
 The posterior predictive distribution is very close to the original one, altough it is less favorable to the high fuel consumption. The predictive distribution seems credible.
 
+## Results
+
 Let us next inspect our parameter space more closely.
 ```{r}
 fit <- models[["wt_disp"]]
@@ -362,12 +367,13 @@ Since we only have two regression coefficients, it is easy for us to visualize t
 ```{r}
 fit_df <- as.data.frame(fit)[1:4]
 
-ggplot(fit_df, aes(beta_wt, beta_disp, color=sigma)) +
+p_params <- ggplot(fit_df, aes(beta_wt, beta_disp, color=sigma)) +
   geom_point(alpha = 0.3) +
   geom_density2d(color = "white") +
   scale_color_viridis_c(option = 'inferno') +
   labs(title = 'Stan parameter space') +
   theme_bw()
+p_params
 ```
 
 There is a negative correlation between the two parameters, which makes sense, since if one of the predictors has a high coefficient, there is not much variation of fuel consumption left for the other predictor to explain (remember that the predictors weight and displacement are themselves heavily correlated).
@@ -413,8 +419,88 @@ knitr::kable(orig_smry, digits = 3)
 
 Now this is easier to interpret! So, an increase of a ton in car weight will on average cause an increase of approximately 4.5 liters per 100 km in fuel consumption. Meanwhile, increasing engine displacement by one litre results in an increase of approximately 0.8 litres per 100km in fuel consumption.
 
+## Sensitivity analysis
+
+We believe the priors are well chosen, but let's check how much the results would change if we used a different set of priors, let's say the default noninformative priors of Stan. The model and the code are similar to above, and can be viewed in the appendix. Let's take a look at the parameter space first:
+
+```{r, echo=FALSE, fig.width=12, fig.height=6}
+fit_noninformative <- stan(paste0(path, "stan_models/wt_disp_noninformative.stan"), data=dada, model_name = "noninf", seed = 38)
+
+fit_df$prior <- "Original"
+fit_df2 <- as.data.frame(fit_noninformative)[1:4]
+fit_df2$prior <- "Noninformative"
+
+fit_df_both <- rbind(fit_df, fit_df2)
+fit_df_both$prior <- factor(fit_df_both$prior, levels = c("Original", "Noninformative"))
+
+p_params2 <- ggplot(fit_df_both, aes(beta_wt, beta_disp, color=sigma)) +
+  geom_point(alpha = 0.3) +
+  geom_density2d(color = "white") +
+  scale_color_viridis_c(option = 'inferno') +
+  labs(title = 'Stan parameter space with different priors') +
+  theme_bw() +
+  facet_grid(cols=vars(prior))
+p_params2
+```
+
+The joint distribution of the parameters looks quite similar even with a quite large change in the prior distribution.
+
+```{r, echo=FALSE, fig.width=10, fig.height=4}
+wt_p2 <- ggplot(fit_df_both, aes(beta_wt, color=prior)) +
+  geom_density() +
+  theme_bw()
+
+disp_p2 <- ggplot(fit_df_both, aes(beta_disp, color = prior)) +
+  geom_density() +
+  theme_bw()
+
+grid.arrange(wt_p2, disp_p2, ncol = 2)
+```
+
+... and so do the marginal distributions. We conclude that the posterior distribution is mainly shaped by the data, and the effect of the priors is quite insignificant.
+
 ## Conclusion and discussion
 
 We set out to do A. We did A, encountered some problems (with heteroskedasticity), but identified a working model (with regards to posterior predictive distribution) that seemed to give sensible values for our estimands and explain our initial confusion about the effects of the gearbox. While it would seem that weight and engine volume efficiently explain fuel consumption, a possible improvement would be to expand the predictor space to potentially other variables, mainly in the hopes of doing away with any remaining heteroskedasticity in the models.
 
 ## Appendix?
+
+
+### Sensitivity analysis
+
+Code for fitting the model and visualizing parameter space:
+
+```{r, eval=FALSE}
+fit_noninformative <- stan(paste0(path, "stan_models/wt_disp_noninformative.stan"), data=dada, model_name = "noninf", seed = 38)
+
+fit_df$prior <- "Original"
+fit_df2 <- as.data.frame(fit_noninformative)[1:4]
+fit_df2$prior <- "Noninformative"
+
+fit_df_both <- rbind(fit_df, fit_df2)
+fit_df_both$prior <- factor(fit_df_both$prior, levels = c("Original", "Noninformative"))
+
+p_params2 <- ggplot(fit_df_both, aes(beta_wt, beta_disp, color=sigma)) +
+  geom_point(alpha = 0.3) +
+  geom_density2d(color = "white") +
+  scale_color_viridis_c(option = 'inferno') +
+  labs(title = 'Stan parameter space with different priors') +
+  theme_bw() +
+  facet_grid(cols=vars(prior))
+p_params2
+```
+
+Code producing plots of marginal distributions:
+
+```{r, eval=FALSE}
+wt_p2 <- ggplot(fit_df_both, aes(beta_wt, color=prior)) +
+  geom_density() +
+  theme_bw()
+
+disp_p2 <- ggplot(fit_df_both, aes(beta_disp, color = prior)) +
+  geom_density() +
+  theme_bw()
+
+grid.arrange(wt_p2, disp_p2, ncol = 2)
+```
+
