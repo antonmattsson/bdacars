@@ -282,11 +282,13 @@ With a few exceptions, most of the k-values seem to be low enough so that we can
 Next, let's look at the PSIS-LOO values. The higher the value, the better the performance of the model. Winner takes it all, other models are discarded before we continue any further.
 
 
-```{r, collapse=TRUE}
+```{r, collapse=TRUE, fig.align="center"}
 psisloosdf <- data.frame(psisloo = psisloos,
                           model = model_names)
 ggplot(data=psisloosdf, aes(x=model, y=psisloo)) + geom_bar(stat="identity", width=0.5) +
-   geom_hline(yintercept=max(psisloos), color = 'blue')
+   geom_hline(yintercept=max(psisloos), color = 'blue') +
+   theme_bw()
+
 knitr::kable(psisloosdf %>%  arrange(desc(psisloo)),
              caption = "PSIS-LOO values", digits = 3)
 ```
