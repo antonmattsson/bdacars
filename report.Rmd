@@ -9,7 +9,7 @@ output:
 
 If you're reading this, you have probably heard about mtcars. If not, you're about to.
 
-Originally extracted from the US magazine Motor Trend in the 1970s, this dataset of car performance and design information has inspired a load of applications of statistical models, notably in regression. For some reason, we have never actually analyzed this dataset on any course before, and now is our chance to take a swing at it. The Bayesian way. Here is a quick summary of what is about to go down:
+Originally extracted from the US magazine Motor Trend in the 1970s, this dataset of car performance and design information has inspired a load of applications of statistical models, notably in regression. For some reason, we have never actually analyzed this dataset on any course before, and now is our chance to take a swing at it, the Bayesian way. Here is a quick summary of what is about to go down:
 
 - Overview of the dataset and the analysis problem
 - Exploratory analysis
@@ -17,7 +17,7 @@ Originally extracted from the US magazine Motor Trend in the 1970s, this dataset
 - Model diagnostics and results
 - Conclusion & Discussion
 
-Without more spoilers, let's see what we have on our hands:
+Avoiding any more spoilers, let's see what we have on our hands:
 
 ### The dataset
 
@@ -29,8 +29,8 @@ The dataset consists of 32 cars, for which the following information has been re
 - Gross horsepower
 - Rear axle ratio (related to towing capabilities)
 - Weight
-- quarter mile time (how fast the car can traverse a quarter mile)
-- shape of the engine - straight vs V-shaped
+- Quarter mile time (how fast the car can traverse a quarter mile)
+- Shape of the engine - straight vs V-shaped
 - Transmission  - automatic vs manual
 - Number of forward gears
 - Number of carburetors
@@ -39,7 +39,7 @@ The dataset naturally calls for a regression model to study the effect of car de
 
 ### The analysis problem
 
-We will analyze three different factors potentially affecting fuel consumption: car weight, displacement and transmission. We hypothesize that heavier cars with bigger engines should consume more fuel. Altough, we do assume that weight and displacement are correlated, so it'll be interesting to see how we can separate the two effects.  We also hypothesize that automatic cars consume less fuel than manual cars, since the automatic transmission can optimize gears used better than a human driver.
+We will analyze three different factors potentially affecting fuel consumption: car weight, displacement and transmission. We hypothesize that heavier cars with bigger engines should consume more fuel. Although, we do assume that weight and displacement are correlated, so it'll be interesting to see how we can separate the two effects.  We also hypothesize that automatic cars consume less fuel than manual cars, since the automatic transmission can optimize gears used better than a human driver.
 
 To find out which combination of the three variables best predict fuel consumption, we will try four different models: one model for each pair of predictors and a model with all three included. We will then choose the best model and continue with the analysis.
 
@@ -65,8 +65,8 @@ library(loo)
 library(gridExtra)
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
-#path <- "C:/Users/esatu/Dropbox/Aalto/Bayesian Data Analysis/Project/"
-path <- "~/Google_Drive/Kurssit/BDA/project/bdacars/"
+path <- "C:/Users/esatu/Dropbox/Aalto/Bayesian Data Analysis/Project/"
+#path <- "~/Google_Drive/Kurssit/BDA/project/bdacars/"
 source(paste0(path, "functions.R"))
 ```
 
@@ -105,9 +105,9 @@ ggpairs(plotcars,
 ```
 
 The plot matrix is a lot to take in, so let's deal with it piece-by-piece.  
-First, let's look at the third row. It displays fuel consumption as a function of the potential explanatory variables. Starting from the left, the first three plots show no surprises. Fuel consumption strongly correlates with car weight and displacement, and the distribution looks smooth with few cars deviating from the rest. The last plot, though, seems to contradict one our initial hypotheses as manual cars (class 1) seem to have lower fuel consumption than automatic ones. The bottom row displays a closer view at the distribution of the consumption in the two transmission classes. The distribution of automatic cars seems to follow the overall distribution, while cars with low fuel consumption dominate the manual class.  We'll have to come back to this later!
+First, let's look at the third row. It displays fuel consumption as a function of the potential explanatory variables. Starting from the left, the first three plots show no surprises. Fuel consumption strongly correlates with car weight and displacement, and the distribution looks smooth with few cars deviating from the rest. The last plot, though, seems to contradict one of our initial hypotheses as manual cars (class 1) seem to have lower fuel consumption than automatic ones. The bottom row displays a closer view at the distribution of the consumption in the two transmission classes. The distribution of automatic cars seems to follow the overall distribution, while cars with low fuel consumption dominate the manual class.  We'll have to come back to this later!
 
-Next up, the top two rows rrepresenting the relationships between our potential explanatory variables. The short story is : they're correlated. The Pearson correlation coefficient between weight and displacement is just shy of 0.9. In addition, automatic cars seem to be heavier an equipped with larger engines than manual cars. Maybe this explains their higher fuel consumption! We'll know more after we run our models.
+Next up, the top two rows representing the relationships between our potential explanatory variables. The short story is: they're correlated. The Pearson correlation coefficient between weight and displacement is just shy of 0.9. In addition, automatic cars seem to be heavier and equipped with larger engines than manual cars. Maybe this explains their higher fuel consumption! We'll know more after we run our models.
 
 ### Preprocessing
 
@@ -208,7 +208,7 @@ for(mname in model_names){
 }
 ```
 
-Before comparing the performance of the models, we need to ensure a fair contest by checking that all of them have converged. Hear are the basic model summaries:
+Before comparing the performance of the models, we need to ensure a fair contest by checking that all of them have converged. Here are the basic model summaries:
 
 ```{r, results='asis'}
 for(mname in model_names){
@@ -293,7 +293,7 @@ knitr::kable(psisloosdf %>%  arrange(desc(psisloo)),
              caption = "PSIS-LOO values", digits = 3)
 ```
 
-The best model is the one with only weight and displacement as predictors, and adding transmission type to the predictors does not improve performance. So it seems that the difference in fuel consumption between automatic and manual cars was indeed primarily due to the fact that the automatic cars were heavier and equipped with larger engines. Or at least we would need a more diverse dataset to make inferences about the effect of the transmission.
+The best model is the one with only weight and displacement as predictors, and adding transmission type to the model does not improve performance. So it seems that the difference in fuel consumption between automatic and manual cars was indeed primarily due to the fact that the automatic cars were heavier and equipped with larger engines. Or at least we would need a more diverse dataset to make inferences about the effect of the transmission.
 
 ### Model diagnostics
 
@@ -323,7 +323,7 @@ p <- ggplot(resids_df, aes(resids_df$Weight, resids_df$Residuals)) +
   theme_bw()
 p
 ```
-The resulting plot exhibits significant heteroskedasticity. This could be an indicator of poorly choosen parameters, i.e. fuel consumption is affected by information we haven't included in our model. Let's take a quick look at the original dataset and its correlation matrix.
+The resulting plot exhibits significant heteroskedasticity. This could be an indicator of poorly chosen parameters, i.e. fuel consumption is affected by information we haven't included in our model. Let's take a quick look at the original dataset and its correlation matrix.
 
 ```{r, fig.width=8, fig.height=8, fig.align="center"}
 library(lattice)
@@ -355,7 +355,7 @@ ggplot(plot_df, aes(lp100km, color = Distribution)) +
 
 ```
 
-The posterior predictive distribution is very close to the original one, altough it is less favorable to the high fuel consumption. The predictive distribution seems credible.
+The posterior predictive distribution is very close to the original one, although it is less favorable to the high fuel consumption. The predictive distribution seems credible.
 
 ## Results
 
@@ -394,7 +394,7 @@ disp_p <- ggplot(fit_df, aes(beta_disp)) +
 grid.arrange(wt_p, disp_p, ncol = 2)
 ```
 
-For both of the regression coefficients, the vast majority of the draws are positive. To get a numeric estimate of the relevance of the two paramters, let's take a closer look at the summary statistics of the model:
+For both of the regression coefficients, the vast majority of the draws are positive. To get a numeric estimate of the relevance of the two parameters, let's take a closer look at the summary statistics of the model:
 
 ```{r}
 beta_smry <- summary(fit, pars = c("beta_wt", "beta_disp"))$summary
@@ -407,7 +407,7 @@ We also want to know the probability that heavier cars and larger engines increa
 fit_df %>% select(beta_wt, beta_disp) %>% sapply(function(x){sum(x > 0)/length(x)})
 ```
 
-Unsurprisingly, we can conclude that  both weight and displacement are related to fuel consumption with a very high probability. But what about the effect size? We have so far only reported the effect size in the scaled units. It is not sufficient to know that heavier cars consume more fuel, we want to know _how much more_. Let's take some key statistics of the last table and transform them back to the original units.
+Unsurprisingly, we can conclude that  both weight and displacement are related to fuel consumption with a very high probability. But what about the effect size? We have so far only reported the effect size in the scaled units. It is not sufficient to know that heavier cars consume more fuel, we want to know _how much more_. Let's take some key statistics of the last table and transform them back to human readable real world units.
 
 ```{r}
 # Compute standard deviations of the predictors
@@ -463,9 +463,13 @@ grid.arrange(wt_p2, disp_p2, ncol = 2)
 
 ## Conclusion and discussion
 
-We set out to do A. We did A, encountered some problems (with heteroskedasticity), but identified a working model (with regards to posterior predictive distribution) that seemed to give sensible values for our estimands and explain our initial confusion about the effects of the transmission. While it would seem that weight and engine volume efficiently explain fuel consumption, a possible improvement would be to expand the predictor space to potentially other variables, mainly in the hopes of doing away with any remaining heteroskedasticity in the models.
+We were interested in the effects that car weight, engine displacement and transmission type has on fuel consumption with regards to the Motor Trends dataset from the 1970s. Our initial exploratory analysis revealed that especially weight and engine displacement would be great predictors for further modeling. Additionally, the data on transmission type subverted our expectations by showing less fuel consumption for manual transmission. There were hints in the data that the result might simply be caused by imbalances regarding weight and displacement distributions. We built four linear models with weakly informative priors to properly stack the predictors against each other, and found out that indeed, the model with weight and displacement performed best, assessing by PSIS-LOO. Including the transmission type into the model had more of a noising effect, which lends credit to our initial idea of weight/displacement imbalances in the transmission type categories.
 
-## Appendix?
+We end up concluding that both weight and engine displacement have a very high probability of increasing fuel consumption, with an effect size 4.5 l/100km per a tonne of added weight and 0.8 l/100km per a litre of increased displacement. 
+
+Our model is not perfect however, as it exhibits significant heteroskedasticity when examining our residuals. There are two kinds of heteroskedasticity: impure, which arises from excluding relevant information from the model, and pure, which arises from using predictors with non-constant variance. It might be that we've ignored a great sum of relevant information by only focusing on 3 predictors, or it might be that we've happened to either choose or manipulate our predictors in such a way that instroduces large non-constant variance into our model data. Our study could be improved by trying to pinpoint the nature of the heteroskedasticity either by expanding the range of predictors included in the model, or by inspecting the variances of the predictors before and after manipulation. Nevertheless, our model produces a credible posterior predictive distribution and is deemed usable as such.
+
+## Appendix
 
 ### Prior distributions
 
